@@ -107,4 +107,7 @@ public abstract class BukkitDataSender extends AbstractDataSender {
 		});
 	}
 
+	@Override protected int heartbeatCapacity() { return Bukkit.getMaxPlayers(); }
+	@Override protected String heartbeatMotd() { return Bukkit.getMotd(); }
+
 }

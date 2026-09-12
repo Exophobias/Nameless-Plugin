@@ -33,7 +33,7 @@ public class SyncBanToWebsite implements Reloadable {
 			return;
 		}
 
-		this.plugin.events().subscribe(NamelessPlayerBanEvent.class, event -> {
+		this.subscription = this.plugin.events().subscribe(NamelessPlayerBanEvent.class, event -> {
 			final UUID uuid = event.uuid();
 
 			this.plugin.scheduler().runAsync(() -> {

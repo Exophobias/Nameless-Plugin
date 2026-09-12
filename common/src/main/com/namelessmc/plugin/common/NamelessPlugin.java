@@ -18,6 +18,8 @@ public class NamelessPlugin {
 	private static NamelessPlugin instance; // Not meant to be used by the nameless plugin itself
 
 	private final AbstractScheduler scheduler;
+	private final AbstractScheduler heartbeatScheduler;
+	private final PublicationPause publicationPause;
 	private final ConfigurationHandler configuration;
 	private final AbstractLogger logger;
 	private final ApiProvider api;
@@ -26,6 +28,7 @@ public class NamelessPlugin {
 	private final UserCache userCache;
 	private final EventBus<NamelessEvent> eventBus;
 	private final GroupSync groupSync;
+	private final Websend websend;
 
 	private final List<List<Reloadable>> reloadables = List.of(
 			new ArrayList<>(),
@@ -45,7 +48,9 @@ public class NamelessPlugin {
 						  final String platformVersion) {
 		instance = this;
 
-		this.scheduler = scheduler;
+		this.publicationPause = new PublicationPause(dataDirectory);
+		this.heartbeatScheduler = scheduler;
+		this.scheduler = new PublicationScheduler(scheduler, this.publicationPause);
 
 		this.configuration = this.registerReloadable(
 				new ConfigurationHandler(dataDirectory)
@@ -75,7 +80,7 @@ public class NamelessPlugin {
 		this.registerReloadable(new Metrics(this, platformInternalName, platformVersion));
 		this.registerReloadable(new Store(this));
 		this.registerReloadable(new SyncBanToWebsite(this));
-		this.registerReloadable(new Websend(this, logPath));
+		this.websend = this.registerReloadable(new Websend(this, logPath));
 		this.groupSync = this.registerReloadable(new GroupSync(this));
 
 		this.registerPermissionAdapter(new LuckPermsPermissions());
@@ -111,6 +116,17 @@ public class NamelessPlugin {
 
 	public AbstractScheduler scheduler() {
 		return this.scheduler;
+	}
+
+	/** Only the restricted server heartbeat and API connection bootstrap may use this scheduler. */
+	public AbstractScheduler heartbeatScheduler() { return this.heartbeatScheduler; }
+
+	public PublicationPause publicationPause() { return this.publicationPause; }
+
+	public boolean releasePublicationPause(String runId, java.util.UUID capability) {
+		// Cursor advancement and exact release share the admission lock. A last callback
+		// finishing between a status read and release cannot skip the cursor boundary.
+		return this.publicationPause.release(runId, capability, this.websend::skipIsolatedLogs);
 	}
 
 	public AbstractAudienceProvider audiences() {

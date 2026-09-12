@@ -67,12 +67,35 @@ public class Websend implements Reloadable {
 		}
 
 		if (config.node("send-logs", "enabled").getBoolean()) {
+			if (!this.plugin.publicationPause().status().get("runId").isEmpty()
+					&& !skipIsolatedLogs()) {
+				this.plugin.logger().warning("Websend log cursor could not exclude previous maintenance logs; sender remains idle.");
+				return;
+			}
 			final Duration interval = ConfigurationHandler.getDuration(config.node("send-logs", "interval"));
 			if (interval == null) {
 				this.plugin.logger().warning("Websend send-logs interval invalid");
 				return;
 			}
 			this.logTask = this.plugin.scheduler().runTimer(this::sendLogLines, interval);
+		}
+	}
+
+	/** Advance only after the entire publication activity chain is drained. No log is uploaded. */
+	boolean skipIsolatedLogs() {
+		synchronized (logLock) {
+			try {
+				final Path log = this.logPath;
+				if (log == null || !Files.exists(log)) return true;
+				if (!Files.isRegularFile(log)) return false;
+				long size = Files.size(log);
+				if (size > Integer.MAX_VALUE) return false;
+				this.previousLogSize = (int) size;
+				return true;
+			} catch (IOException failure) {
+				this.plugin.logger().warning("Cannot establish post-maintenance Websend log boundary.");
+				return false;
+			}
 		}
 	}
 

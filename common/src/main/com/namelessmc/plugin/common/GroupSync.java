@@ -26,20 +26,25 @@ public class GroupSync implements Reloadable {
 
     private @Nullable AbstractScheduledTask task = null;
     private int serverId;
+    private long generation;
 
     GroupSync(final NamelessPlugin plugin) {
         this.plugin = plugin;
     }
 
     @Override
-    public void unload() {
+    public synchronized void unload() {
+        generation++;
         if (this.task != null) {
             task.cancel();
+            task = null;
         }
     }
 
     @Override
-    public void load() {
+    public synchronized void load() {
+        unload();
+        final long admittedGeneration = generation;
         ConfigurationNode config = this.plugin.config().main();
         if (!config.node("group-sync", "enabled").getBoolean()) {
             this.plugin.logger().fine("New group sync disabled");
@@ -62,24 +67,36 @@ public class GroupSync implements Reloadable {
             return;
         }
 
-        this.plugin.scheduler().runAsync(() -> {
-            try {
-                final NamelessAPI api = this.plugin.apiProvider().api();
-                if (api == null) {
-                    return;
-                }
-
-                // Group sync API is available in 2.1.0+
-                if (api.website().parsedVersion().minor() < 1) {
-                    this.plugin.logger().warning("Website version is older than v2.1.0+, refusing to enable new group sync system");
-                    return;
-                }
-
+		// This bootstrap reads website version metadata only. It must still create the gated
+		// repeating timer when the plugin starts/reloads while a durable pause is held.
+		this.plugin.heartbeatScheduler().runAsync(() -> {
+            synchronized (this) {
+                if (generation != admittedGeneration) return;
+            }
+            if (!supportsGroupSync()) return;
+            synchronized (this) {
+                // Metadata I/O may finish after unload or a newer configuration load. Keep
+                // invalidation and installation under one lock so retired work cannot revive it.
+                if (generation != admittedGeneration) return;
                 this.task = this.plugin.scheduler().runTimer(this::syncGroups, Duration.ofSeconds(10));
-            } catch (final NamelessException e) {
-                this.plugin.logger().logException(e);
             }
         });
+    }
+
+    /** Metadata-only boundary; fixtures never need to call this website read directly. */
+    boolean supportsGroupSync() {
+        try {
+            final NamelessAPI api = this.plugin.apiProvider().api();
+            if (api == null) return false;
+            if (api.website().parsedVersion().minor() < 1) {
+                this.plugin.logger().warning("Website version is older than v2.1.0+, refusing to enable new group sync system");
+                return false;
+            }
+            return true;
+        } catch (final NamelessException e) {
+            this.plugin.logger().logException(e);
+            return false;
+        }
     }
 
     private void syncGroups() {

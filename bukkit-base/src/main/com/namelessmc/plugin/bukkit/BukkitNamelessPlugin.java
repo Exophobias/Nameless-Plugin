@@ -15,6 +15,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletionStage;
 
 public abstract class BukkitNamelessPlugin extends JavaPlugin {
 
@@ -58,7 +61,21 @@ public abstract class BukkitNamelessPlugin extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
+		this.plugin.publicationPause().disable();
 		this.plugin.unload();
+	}
+
+	/** Trusted in-process maintenance API; config credentials and heartbeat remain active. */
+	public CompletionStage<Void> acquirePublicationPause(String runId, UUID capability) {
+		return this.plugin.publicationPause().acquire(runId, capability);
+	}
+
+	public boolean releasePublicationPause(String runId, UUID capability) {
+		return this.plugin.releasePublicationPause(runId, capability);
+	}
+
+	public Map<String, String> publicationPauseStatus() {
+		return this.plugin.publicationPause().status();
 	}
 
 	protected abstract void configureAudiences();

@@ -94,7 +94,7 @@ public abstract class AbstractDataSender implements Runnable, Reloadable {
 			return;
 		}
 
-		this.dataSenderTask = this.plugin.scheduler().runTimer(this, configuredInterval);
+		this.dataSenderTask = this.plugin.heartbeatScheduler().runTimer(this, configuredInterval);
 
 		this.globalInfoProviders = new ArrayList<>();
 		this.playerInfoProviders = new ArrayList<>();
@@ -156,10 +156,40 @@ public abstract class AbstractDataSender implements Runnable, Reloadable {
 
 	@Override
 	public void run() {
+		if (!this.plugin.publicationPause().run(this::runPublication)) {
+			// Never call custom/global/player providers in isolation: placeholders and online
+			// actor objects may contain temporary fixture identities. Only liveness is sent.
+			final JsonObject heartbeat = heartbeatBody(this.serverId, this.configuredInterval);
+			heartbeat.addProperty("max_players", heartbeatCapacity());
+			heartbeat.addProperty("motd", heartbeatMotd());
+			this.plugin.heartbeatScheduler().runAsync(() -> send(heartbeat));
+		}
+	}
+
+	static JsonObject heartbeatBody(int serverId, @Nullable Duration interval) {
+		if (serverId <= 0 || interval == null) throw new IllegalStateException("Heartbeat is not configured");
+		JsonObject data = new JsonObject();
+		data.addProperty("server_id", serverId);
+		data.addProperty("server-id", serverId);
+		data.addProperty("interval_seconds", interval.toSeconds());
+		data.addProperty("time", System.currentTimeMillis());
+		data.add("players", new JsonObject());
+		data.addProperty("max_players", 0);
+		data.addProperty("motd", "Server online");
+		return data;
+	}
+
+	protected int heartbeatCapacity() { return 0; }
+	protected String heartbeatMotd() { return "Server online"; }
+
+	private void runPublication() {
 		final JsonObject data = buildJsonBody();
 		this.plugin.logger().fine(() -> "Sending server data to website: " + data);
 
-		this.plugin.scheduler().runAsync(() -> {
+		this.plugin.scheduler().runAsync(() -> send(data));
+	}
+
+	protected void send(JsonObject data) {
 			final NamelessAPI api = this.plugin.apiProvider().api();
 			if (api == null) {
 				return;
@@ -175,7 +205,6 @@ public abstract class AbstractDataSender implements Runnable, Reloadable {
 					logger.logException(e);
 				}
 			}
-		});
 	}
 
 	protected void registerGlobalInfoProvider(InfoProvider globalInfoProvider) {

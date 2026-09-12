@@ -6,6 +6,33 @@
 
 The official Minecraft plugin for NamelessMC v2. For compiled files see the [spigot resource page](https://www.spigotmc.org/resources/nameless-plugin-for-v2.59032/)
 
+## Patriam testing publication isolation
+
+The maintained Paper build exposes protocol 1 on its `NamelessMC` plugin instance:
+`acquirePublicationPause(String runId, UUID capability)` returns a `CompletionStage<Void>`,
+`releasePublicationPause(String runId, UUID capability)` returns a boolean, and
+`publicationPauseStatus()` returns a string map containing `protocol`, `state`, `runId`,
+`capability` and `inFlight`. These are trusted-plugin operations used by PatriamTesting.
+
+Acquisition closes admission and waits for already queued publication work, including its
+scheduled continuations, to finish. During the pause, website data, group sync, store work,
+account requests and Websend are withheld. The server-info timer continues to send only
+server identity, time, capacity, MOTD and an empty player map. This keeps the website's
+server status online without publishing fixture identities; its player count temporarily
+shows zero. Player/global providers and placeholders are not called for this heartbeat.
+On release, Websend skips logs written during isolation so they are not uploaded later.
+
+No configuration values or API keys are changed. The exact owner/token is persisted in
+`publication-pause.state`; it has no timeout. A server restart retains the pause until
+PatriamTesting verifies cleanup and releases it. Replacing an active publisher inside the
+same JVM, or an invalid/changed receipt, blocks publication and requires recovery. Keep
+publisher installation and enable/disable operations outside fixture runs. Never remove a
+pause receipt to force sync on while test data may remain.
+
+Local regressions cover queued work and cancellation, durable ownership/restart behavior,
+restricted heartbeat contents and resuming the normal data sender. A live website run is
+separate acceptance evidence.
+
 ## Features
 * Multi-platform! Supports Spigot 1.8-1.19, BungeeCord, Velocity, Sponge 7-9.
 * Commands to register or verify an account, report a player, read website notifications and more.
