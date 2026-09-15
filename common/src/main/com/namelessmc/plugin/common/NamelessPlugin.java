@@ -75,6 +75,7 @@ public class NamelessPlugin {
 		this.eventBus = EventBus.create(NamelessEvent.class);
 
 		this.registerReloadable(new AnnouncementTask(this));
+		this.registerReloadable(new LinkReminderTask(this));
 		this.registerReloadable(new JoinNotificationsMessage(this));
 		this.registerReloadable(new JoinNotRegisteredMessage(this));
 		this.registerReloadable(new Metrics(this, platformInternalName, platformVersion));

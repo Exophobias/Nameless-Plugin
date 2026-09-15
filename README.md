@@ -6,6 +6,26 @@
 
 The official Minecraft plugin for NamelessMC v2. For compiled files see the [spigot resource page](https://www.spigotmc.org/resources/nameless-plugin-for-v2.59032/)
 
+## Forum-controlled account-link reminders
+
+The maintained Paper release `3.4.2-patriam.2` reads the forum's **Link Reminders** StaffCP
+settings through the existing Core API connection. Staff can enable/disable reminders, choose
+an interval (1–1440 minutes, default 30) and edit separate plain-text messages for missing
+Minecraft and Discord verification. The website's LinkReminders module owns configuration
+schema 1; no additional local YAML or credentials are needed. Without that module, or while
+its settings are disabled/unavailable, the plugin sends no reminder.
+
+Each online session starts a fresh timer. Account state and settings are checked asynchronously
+once per minute, in batches of at most 100 UUIDs. Reminders therefore arrive at the first check
+after the configured interval, contain a clickable Account Connections link and stop when both
+integrations are verified on the same forum account. Fully linked accounts, unknown/ambiguous
+identity and failed/stale lookups do not receive reminders. Reconnects/reloads start a fresh timer;
+queued replies cannot cross a player session or plugin reload. Forum text cannot execute commands.
+
+This is a private message to the affected online player, not a chat broadcast. No permissions,
+groups, faction membership, leadership or Discord guild-membership policy are changed. Reminder
+requests participate in the existing testing publication pause.
+
 ## Patriam testing publication isolation
 
 The maintained Paper build exposes protocol 1 on its `NamelessMC` plugin instance:
