@@ -10,6 +10,7 @@ import com.namelessmc.plugin.common.event.NamelessPlayerQuitEvent;
 import com.namelessmc.plugin.common.logger.JulLogger;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -38,8 +39,8 @@ class LinkReminderTaskTest {
         f.poll(5);
         assertEquals(Component.text("Discord <click:run_command:'/op me'>literal</click>"),
                 f.task.sent.get(0).children().get(0).color(null));
-        assertEquals("https://forums.patriam.cc/user/connections/",
-                f.task.sent.get(0).children().get(1).clickEvent().value());
+        assertEquals(ClickEvent.openUrl("https://forums.patriam.cc/user/connections/"),
+                f.task.sent.get(0).children().get(1).clickEvent());
         assertNull(f.task.sent.get(0).children().get(0).clickEvent());
         f.task.enabled = false; f.poll(10); assertEquals(1, f.task.sent.size());
         f.task.enabled = true; f.poll(14); assertEquals(1, f.task.sent.size());
