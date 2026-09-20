@@ -9,6 +9,8 @@
 	<name>Nameless-Plugin</name>
 
 	<properties>
+        <paper.version>1.18.2-R0.1-SNAPSHOT</paper.version>
+        <paper.java.version>17</paper.java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<revision>3.4.2-patriam.2</revision>
 		<checkerFrameworkVersion>3.54.0</checkerFrameworkVersion>
@@ -235,7 +237,7 @@
 			<dependency>
 				<groupId>io.papermc.paper</groupId>
 				<artifactId>paper-api</artifactId>
-				<version>1.18.2-R0.1-SNAPSHOT</version>
+				<version>${paper.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>me.clip</groupId>
@@ -299,4 +301,13 @@
 
 	</repositories>
 
+  <profiles>
+    <profile>
+      <id>paper-26.3</id>
+      <properties>
+        <paper.version>26.3.build.26-alpha</paper.version>
+        <paper.java.version>25</paper.java.version>
+      </properties>
+    </profile>
+  </profiles>
 </project>
