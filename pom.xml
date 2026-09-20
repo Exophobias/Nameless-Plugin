@@ -307,6 +307,8 @@
       <properties>
         <paper.version>26.3.build.26-alpha</paper.version>
         <paper.java.version>25</paper.java.version>
+        <!-- Keep the managed Adventure API aligned with this Paper build. -->
+        <adventureVersion>5.2.0</adventureVersion>
       </properties>
     </profile>
   </profiles>
