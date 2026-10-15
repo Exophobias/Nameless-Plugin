@@ -102,7 +102,7 @@ public class BukkitCommandProxy {
 			if (sender == null) {
 				return Collections.singletonList("ERROR: Audience is null");
 			}
-			return this.command.complete(sender, args);
+			return this.command.verifyPermissionThenComplete(sender, args);
 		}
 
 		@Override

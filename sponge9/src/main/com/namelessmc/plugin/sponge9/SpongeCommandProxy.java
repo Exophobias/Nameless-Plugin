@@ -84,14 +84,14 @@ public class SpongeCommandProxy {
 
 		@Override
 		public List<CommandCompletion> complete(final CommandCause cause, final ArgumentReader.Mutable arguments) throws CommandException {
-			return this.command.complete(causeToSender(cause), argsToArray(arguments)).stream()
+			return this.command.verifyPermissionThenComplete(causeToSender(cause), argsToArray(arguments)).stream()
 					.map(CommandCompletion::of)
 					.collect(Collectors.toList());
 		}
 
 		@Override
 		public boolean canExecute(final CommandCause cause) {
-			return cause.hasPermission(permission);
+			return command instanceof com.namelessmc.plugin.common.command.NamelessPluginCommand || cause.hasPermission(permission);
 		}
 
 		@Override

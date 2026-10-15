@@ -66,7 +66,7 @@ public class SpongeCommandProxy {
 
 				@Override
 				public boolean testPermission(final CommandSource source) {
-					return source.hasPermission(permission);
+					return command instanceof com.namelessmc.plugin.common.command.NamelessPluginCommand || source.hasPermission(permission);
 				}
 
 				@Override

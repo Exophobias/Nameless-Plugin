@@ -102,3 +102,17 @@ Building the entire project can take quite a long time. You might want to build 
 ```sh
 mvn package -pl velocity -am
 ```
+
+## Patriam upstream refresh and command help
+
+The `3.4.2-patriam.3` candidate incorporates official upstream dependency and translation updates.
+`/nlpl` and `/nlpl help [page|staff]` show only commands permitted to the viewer, using configured
+command names and separate staff pages. Reload and last-error diagnostics still require
+`namelessmc.command.nameless`; other-player credit help and suggestions also require
+`namelessmc.command.store-view-credits.others`. Existing command execution and player/console
+context checks remain independent of help.
+
+This release retains `Store.java` exactly from accepted production source `ba66779`. The unfinished
+paged Store command worker is preserved at `pending/store-worker` (`09fe184`) for later acceptance;
+it is excluded from this release. This refresh makes no durability or replay-safety claim for Store
+command dispatch. Development's disabled Store integration remains an operator decision.

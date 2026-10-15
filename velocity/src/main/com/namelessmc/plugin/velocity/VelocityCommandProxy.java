@@ -61,7 +61,8 @@ public class VelocityCommandProxy {
 
 		@Override
 		public boolean hasPermission(final SimpleCommand.Invocation invocation) {
-			return invocation.source().hasPermission(this.permission);
+			return command instanceof com.namelessmc.plugin.common.command.NamelessPluginCommand
+                    || invocation.source().hasPermission(this.permission);
 		}
 
 	}

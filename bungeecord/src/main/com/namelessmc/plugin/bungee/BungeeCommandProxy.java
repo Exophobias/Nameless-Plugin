@@ -18,7 +18,8 @@ public class BungeeCommandProxy {
 			if (name == null) {
 				return; // Command is disabled
 			}
-			final String permission = command.permission().toString();
+			final String permission = command instanceof com.namelessmc.plugin.common.command.NamelessPluginCommand
+                    ? null : command.permission().toString();
 
 			Command bungeeCommand = new Command(name, permission) {
 				@Override

@@ -79,7 +79,8 @@ public class StoreViewCreditsCommand extends CommonCommand {
 
 	@Override
 	public List<String> complete(final NamelessCommandSender sender, final String[] args) {
-		if (args.length == 1) {
+		if (args.length == 1 && sender.hasPermission(Permission.COMMAND_STORE_VIEW_CREDITS)
+                && sender.hasPermission(Permission.COMMAND_STORE_VIEW_CREDITS_OTHERS)) {
 			return this.plugin().userCache().minecraftUsernamesSearch(args[0]);
 		}
 		return Collections.emptyList();

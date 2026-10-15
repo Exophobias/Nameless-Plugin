@@ -12,7 +12,7 @@
         <paper.version>1.18.2-R0.1-SNAPSHOT</paper.version>
         <paper.java.version>17</paper.java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<revision>3.4.2-patriam.2</revision>
+		<revision>3.4.2-patriam.3</revision>
 		<checkerFrameworkVersion>3.54.0</checkerFrameworkVersion>
 		<velocityVersion>3.4.0</velocityVersion>
 		<bStatsVersion>3.2.1</bStatsVersion>
@@ -41,7 +41,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.15.0</version>
+				<version>3.16.0</version>
 				<configuration>
 					<source>11</source>
 					<target>11</target>
@@ -118,7 +118,7 @@
 			</plugin>
 			<plugin>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.5.6</version>
+				<version>3.6.0</version>
 			</plugin>
 		</plugins>
 	</build>
@@ -212,7 +212,7 @@
 			<dependency>
 				<groupId>org.slf4j</groupId>
 				<artifactId>slf4j-api</artifactId>
-				<version>2.0.18</version>
+				<version>2.0.20</version>
 			</dependency>
 			<dependency>
 				<groupId>org.checkerframework</groupId>

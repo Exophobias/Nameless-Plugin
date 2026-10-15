@@ -86,6 +86,10 @@ public abstract class CommonCommand {
 		this.execute(sender, args);
 	}
 
+    public List<String> verifyPermissionThenComplete(NamelessCommandSender sender, String[] args) {
+        return sender.hasPermission(this.permission) ? this.complete(sender, args) : Collections.emptyList();
+    }
+
 	public List<String> complete(final @NonNull NamelessCommandSender sender, final @NonNull String@NonNull[] args) {
 		return Collections.emptyList();
 	}
