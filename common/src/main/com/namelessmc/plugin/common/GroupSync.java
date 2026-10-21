@@ -1,6 +1,9 @@
 package com.namelessmc.plugin.common;
 
 import com.namelessmc.java_api.NamelessAPI;
+import com.namelessmc.java_api.NamelessUser;
+import com.namelessmc.java_api.integrations.DetailedIntegrationData;
+import com.namelessmc.java_api.integrations.StandardIntegrationTypes;
 import com.namelessmc.java_api.exception.ApiError;
 import com.namelessmc.java_api.exception.ApiException;
 import com.namelessmc.java_api.exception.NamelessException;
@@ -11,6 +14,7 @@ import org.spongepowered.configurate.ConfigurationNode;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -21,6 +25,7 @@ public class GroupSync implements Reloadable {
      * Current group set for players, updated for online players
      */
     private final Map<UUID, Set<String>> playerGroups = new HashMap<>();
+    private final Set<UUID> pendingPlayers = new HashSet<>();
 
     private final NamelessPlugin plugin;
 
@@ -35,6 +40,8 @@ public class GroupSync implements Reloadable {
     @Override
     public synchronized void unload() {
         generation++;
+        playerGroups.clear();
+        pendingPlayers.clear();
         if (this.task != null) {
             task.cancel();
             task = null;
@@ -55,7 +62,7 @@ public class GroupSync implements Reloadable {
 
         this.serverId = config.node("api", "server-id").getInt(0);
 
-        if (this.serverId == 0) {
+        if (this.serverId <= 0) {
             this.plugin.logger().warning("Group sync is enabled but server-id is missing or zero. Group sync will not work until server-id is configured in main.yaml.");
             return;
         }
@@ -88,8 +95,8 @@ public class GroupSync implements Reloadable {
         try {
             final NamelessAPI api = this.plugin.apiProvider().api();
             if (api == null) return false;
-            if (api.website().parsedVersion().minor() < 1) {
-                this.plugin.logger().warning("Website version is older than v2.1.0+, refusing to enable new group sync system");
+            if (api.website().parsedVersion().minor() < 2) {
+                this.plugin.logger().warning("Website version is older than v2.2.0+, refusing to enable new group sync system");
                 return false;
             }
             return true;
@@ -99,59 +106,71 @@ public class GroupSync implements Reloadable {
         }
     }
 
-    private void syncGroups() {
+    synchronized void syncGroups() {
         final AbstractPermissions permissions = this.plugin.permissions();
         if (permissions == null) {
             throw new IllegalStateException("Permissions adapter cannot be null, or this task shouldn't have been registered");
         }
 
+        final long admittedGeneration = generation;
+        final int admittedServerId = serverId;
         final Map<UUID, Set<String>> groupsToSend = new HashMap<>();
-
+        final Map<UUID, Set<String>> previousGroups = new HashMap<>();
         for (NamelessPlayer player : this.plugin.audiences().onlinePlayers()) {
-            final Set<String> newGroups = permissions.getPlayerGroups(player);
-            if (newGroups == null) {
-                this.plugin.logger().fine(() -> "Cannot retrieve groups for player: " + player.username());
-                continue;
-            }
-
-            final Set<String> previousGroups = playerGroups.get(player.uuid());
-
-            if (previousGroups == null) {
-                this.plugin.logger().fine(() -> "Groups not previously known, or manually re-queued for player: " + player.username());
-                this.playerGroups.put(player.uuid(), newGroups);
-                groupsToSend.put(player.uuid(), newGroups);
-            } else if (!newGroups.equals(previousGroups)) {
-                this.plugin.logger().fine(() -> "Groups have changed for player: " + player.username());
-                this.playerGroups.put(player.uuid(), newGroups);
-                groupsToSend.put(player.uuid(), newGroups);
-            }
+            if (pendingPlayers.contains(player.uuid())) continue;
+            final Set<String> current = permissions.getPlayerGroups(player);
+            if (current == null) continue;
+            final Set<String> next = Set.copyOf(current);
+            final Set<String> previous = playerGroups.get(player.uuid());
+            if (next.equals(previous)) continue;
+            groupsToSend.put(player.uuid(), next);
+            previousGroups.put(player.uuid(), previous == null ? Set.of() : previous);
         }
-
-        if (groupsToSend.isEmpty()) {
-            this.plugin.logger().fine("No group changes");
-            return;
-        }
-
-        this.plugin.logger().fine(() -> "Sending groups for " + groupsToSend.size() + " players");
+        if (groupsToSend.isEmpty()) return;
+        pendingPlayers.addAll(groupsToSend.keySet());
 
         this.plugin.scheduler().runAsync(() -> {
             final NamelessAPI api = this.plugin.apiProvider().api();
-            if (api == null) {
-                return;
-            }
-            try {
-                api.sendMinecraftGroups(this.serverId, groupsToSend);
-            } catch (NamelessException e) {
-                this.plugin.logger().warning("An error occurred while sending player groups to the website, for group sync. The plugin will try again later.");
-                if (e instanceof ApiException && ((ApiException) e).apiError() == ApiError.CORE_INVALID_SERVER_ID) {
-                    this.plugin.logger().warning("The server id configured in main.yaml is incorrect, or no correct group sync server is selected in StaffCP > Integrations > Minecraft > Minecraft Servers.");
-                } else {
-                    this.plugin.logger().logException(e);
+            for (Map.Entry<UUID, Set<String>> entry : groupsToSend.entrySet()) {
+                synchronized (this) {
+                    if (generation != admittedGeneration) return;
                 }
-
-                // Re-queue players by deleting their groups from local state
-                for (final UUID uuid : groupsToSend.keySet()) {
-                    this.playerGroups.remove(uuid);
+                boolean sent = false;
+                try {
+                    if (api != null) {
+                        final Set<String> added = new HashSet<>(entry.getValue());
+                        added.removeAll(previousGroups.get(entry.getKey()));
+                        final Set<String> removed = new HashSet<>(previousGroups.get(entry.getKey()));
+                        removed.removeAll(entry.getValue());
+                        final NamelessUser user = api.userByMinecraftUuidLazy(entry.getKey());
+                        final DetailedIntegrationData minecraft = user.integrations().get(StandardIntegrationTypes.MINECRAFT);
+                        // Preserve the old bulk endpoint's active-account and verified-link floor.
+                        // The newer endpoint and its integration transformer do not check these.
+                        if (!user.isVerified() || minecraft == null || !minecraft.isVerified()
+                                || !entry.getKey().equals(user.minecraftUuid())) continue;
+                        user.updateMinecraftGroups(admittedServerId,
+                                added.toArray(new String[0]), removed.toArray(new String[0]));
+                        sent = true;
+                    }
+                } catch (NamelessException e) {
+                    if (e instanceof ApiException && ((ApiException) e).apiError() == ApiError.NAMELESS_CANNOT_FIND_USER) {
+                        continue; // Unlinked players must not prevent other players' deltas.
+                    }
+                    this.plugin.logger().warning("An error occurred while sending player groups to the website, for group sync. The plugin will try again later.");
+                    if (e instanceof ApiException && ((ApiException) e).apiError() == ApiError.CORE_INVALID_SERVER_ID) {
+                        this.plugin.logger().warning("The server id configured in main.yaml is incorrect, or no correct group sync server is selected in StaffCP > Integrations > Minecraft > Minecraft Servers.");
+                    } else {
+                        this.plugin.logger().logException(e);
+                    }
+                } finally {
+                    synchronized (this) {
+                        if (generation == admittedGeneration) {
+                            pendingPlayers.remove(entry.getKey());
+                            // Retain the acknowledged baseline on failure so a failed removal
+                            // is retried as a removal, including when another player succeeded.
+                            if (sent) playerGroups.put(entry.getKey(), entry.getValue());
+                        }
+                    }
                 }
             }
         });
@@ -161,7 +180,7 @@ public class GroupSync implements Reloadable {
      * Force groups to be sent again for this player
      * @param player
      */
-    public void resetGroups(NamelessPlayer player) {
+    public synchronized void resetGroups(NamelessPlayer player) {
         this.playerGroups.remove(player.uuid());
     }
 

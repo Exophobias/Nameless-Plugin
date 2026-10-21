@@ -12,7 +12,7 @@
         <paper.version>1.18.2-R0.1-SNAPSHOT</paper.version>
         <paper.java.version>17</paper.java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<revision>3.4.2-patriam.3</revision>
+		<revision>3.4.2-patriam.4</revision>
 		<checkerFrameworkVersion>3.54.0</checkerFrameworkVersion>
 		<velocityVersion>3.4.0</velocityVersion>
 		<bStatsVersion>3.2.1</bStatsVersion>
