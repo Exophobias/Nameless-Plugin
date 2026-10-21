@@ -119,6 +119,7 @@ class GroupSyncTest {
         final List<NamelessPlayer> players = new ArrayList<>();
         final List<JsonObject> requests = new ArrayList<>();
         final List<String> paths = new ArrayList<>();
+        final Map<String, Integer> userIds = new HashMap<>();
         final HttpServer server;
         final NamelessPlugin plugin;
         UUID failUuid;
@@ -136,7 +137,7 @@ class GroupSyncTest {
                 } else if (route.startsWith("/users/")) {
                     String uuid = route.substring(route.lastIndexOf(':') + 1);
                     if (missing.contains(uuid)) response = "{\"error\":\"nameless:cannot_find_user\"}";
-                    else response = "{\"exists\":true,\"validated\":" + !inactive.contains(uuid)
+                    else response = "{\"id\":" + userIds.get(uuid) + ",\"exists\":true,\"validated\":" + !inactive.contains(uuid)
                             + ",\"integrations\":[{\"integration\":\"Minecraft\",\"identifier\":\"" + uuid
                             + "\",\"username\":\"Reader\",\"verified\":" + !unverified.contains(uuid)
                             + ",\"linked_date\":1,\"show_publicly\":true}]}";
@@ -144,7 +145,7 @@ class GroupSyncTest {
                     paths.add(route);
                     requests.add(JsonParser.parseString(new String(exchange.getRequestBody().readAllBytes(),
                             StandardCharsets.UTF_8)).getAsJsonObject());
-                    if (failUuid != null && route.contains(failUuid.toString().replace("-", ""))) {
+                    if (failUuid != null && route.equals("/minecraft/id:" + userIds.get(failUuid.toString().replace("-", "")) + "/sync-groups")) {
                         response = "{\"error\":\"core:invalid_server_id\"}";
                         failUuid = null;
                     } else response = "{}";
@@ -188,6 +189,7 @@ class GroupSyncTest {
         UUID addPlayer(String name, Set<String> memberships) {
             UUID id = UUID.randomUUID();
             groups.put(id, memberships);
+            userIds.put(id.toString().replace("-", ""), userIds.size() + 1);
             players.add(new NamelessPlayer(plugin.config(), Audience.empty(), id, name) {
                 public boolean hasPermission(Permission permission) { return true; }
             });
@@ -195,7 +197,7 @@ class GroupSyncTest {
         }
         void sync() { plugin.groupSync().syncGroups(); raw.drain(); }
         void assertDelta(int index, UUID id, Set<String> add, Set<String> remove) {
-            assertEquals("/minecraft/integration_id:Minecraft:" + id.toString().replace("-", "") + "/sync-groups", paths.get(index));
+            assertEquals("/minecraft/id:" + userIds.get(id.toString().replace("-", "")) + "/sync-groups", paths.get(index));
             JsonObject request = requests.get(index);
             assertEquals(7, request.get("server_id").getAsInt());
             assertEquals(add, strings(request, "add"));
